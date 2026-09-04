@@ -16,7 +16,7 @@ def preprocess_image(image: np.ndarray) -> np.ndarray:
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     closed_thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
 
-    return thresh
+    return closed_thresh
 
 
 def order_points(pts: np.ndarray) -> np.ndarray:
