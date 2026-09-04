@@ -38,10 +38,10 @@ def main():
     with open('./data/raw/v2_train.desc', 'r') as f:
         fnames = list(map(lambda name: name.split('/')[1][:-1], f.readlines()))
 
-    # for fn in fnames:
-    #    cut_and_save(fn, src_dir, dst_dir)
-    #    cv2.destroyAllWindows()
-    cut_and_save('image29.jpg', src_dir, dst_dir)
+    for fn in fnames:
+       cut_and_save(fn, src_dir, dst_dir)
+       cv2.destroyAllWindows()
+    # cut_and_save('image29.jpg', src_dir, dst_dir)
 
 if __name__ == '__main__':
     main()

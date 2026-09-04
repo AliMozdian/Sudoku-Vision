@@ -5,10 +5,17 @@ import numpy as np
 def preprocess_image(image: np.ndarray) -> np.ndarray:
     """Converts image to grayscale, blurs, and applies adaptive thresholding."""
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
     # Gaussian blur to reduce high-frequency noise while preserving boundaries
     blurred = cv2.GaussianBlur(gray, (7, 7), 3)
+
     # Adaptive threshold creates a binary image robust to varying illumination
     thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
+
+    # Morphological Closing
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    closed_thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+
     return thresh
 
 
@@ -31,18 +38,30 @@ def order_points(pts: np.ndarray) -> np.ndarray:
 
 def find_board_corners(thresh_img: np.ndarray) -> np.ndarray:
     """Finds the 4 corners of the largest quadrilateral contour."""
-    contours, _ = cv2.findContours(thresh_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(thresh_img, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     # Sort contours by area in descending order
     contours = sorted(contours, key=cv2.contourArea, reverse=True)
 
+    total_area = thresh_img.shape[0] * thresh_img.shape[1]
     for c in contours:
+        area = cv2.contourArea(c)
+        # Skip small contours (a real board occupies at least 20% of the image)
+        if area < 0.20 * total_area:
+            continue
+
         perimeter = cv2.arcLength(c, True)
         # Approximate contour with a simpler polygon (epsilon = 2% of perimeter)
         approx = cv2.approxPolyDP(c, 0.02 * perimeter, True)
 
-        # The Sudoku board boundary is a 4-point polygon
-        if len(approx) == 4:
-            return approx.reshape(4, 2)
+        # Wrap the contour in a convex hull to smooth small dents and bumps
+        hull = cv2.convexHull(c)
+        perimeter = cv2.arcLength(hull, True)
+
+        # Try tolerances from 2% up to 5% to find 4 corners
+        for eps_factor in [0.02, 0.03, 0.04, 0.05]:
+            approx = cv2.approxPolyDP(hull, eps_factor * perimeter, True)
+            if len(approx) == 4:
+                return approx.reshape(4, 2)
 
     return None
 
