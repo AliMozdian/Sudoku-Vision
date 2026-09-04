@@ -3,22 +3,34 @@ import numpy as np
 
 
 def preprocess_image(image: np.ndarray) -> np.ndarray:
-    """Converts image to grayscale, blurs, and applies adaptive thresholding."""
+    """Isolates grid lines by filtering for long horizontal and vertical structures."""
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    # Gaussian blur to reduce high-frequency noise while preserving boundaries
-    blurred = cv2.GaussianBlur(gray, (7, 7), 3)
+    # 1. Base Adaptive Threshold
+    thresh = cv2.adaptiveThreshold(
+        blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
+    )
 
-    # Adaptive threshold creates a binary image robust to varying illumination
-    thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
+    # 2. Extract long horizontal lines
+    # Kernel width is proportional to image width (e.g., width / 30)
+    horiz_size = max(1, image.shape[1] // 30)
+    horiz_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (horiz_size, 1))
+    horizontal = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, horiz_kernel)
 
-    # Morphological Closing
-    kernel_h = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 1))
-    kernel_v = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 5))
-    closed_thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel_h)
-    closed_thresh = cv2.morphologyEx(closed_thresh, cv2.MORPH_CLOSE, kernel_v)
+    # 3. Extract long vertical lines
+    vert_size = max(1, image.shape[0] // 30)
+    vert_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, vert_size))
+    vertical = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, vert_kernel)
 
-    return closed_thresh
+    # 4. Combine horizontal and vertical lines to form the clean grid skeleton
+    grid_table = cv2.add(horizontal, vertical)
+
+    # 5. Connect any intersections cleanly
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    grid_table = cv2.morphologyEx(grid_table, cv2.MORPH_CLOSE, kernel)
+
+    return grid_table
 
 
 def order_points(pts: np.ndarray) -> np.ndarray:
