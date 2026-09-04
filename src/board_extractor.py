@@ -13,8 +13,10 @@ def preprocess_image(image: np.ndarray) -> np.ndarray:
     thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
 
     # Morphological Closing
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    closed_thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+    kernel_h = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 1))
+    kernel_v = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 5))
+    closed_thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel_h)
+    closed_thresh = cv2.morphologyEx(closed_thresh, cv2.MORPH_CLOSE, kernel_v)
 
     return closed_thresh
 
@@ -36,34 +38,40 @@ def order_points(pts: np.ndarray) -> np.ndarray:
     return rect
 
 
-def find_board_corners(thresh_img: np.ndarray) -> np.ndarray:
-    """Finds the 4 corners of the largest quadrilateral contour."""
+def find_board_corners(thresh_img: np.ndarray, min_area_ratio=0.15, min_aspect_ratio=0.5) -> np.ndarray:
+    """Finds the 4 corners of the Sudoku grid with area and aspect ratio checks."""
     contours, _ = cv2.findContours(thresh_img, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    # Sort contours by area in descending order
-    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+    if not contours:
+        return None
 
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
     total_area = thresh_img.shape[0] * thresh_img.shape[1]
+
+    candidates = []
     for c in contours:
         area = cv2.contourArea(c)
-        # Skip small contours (a real board occupies at least 20% of the image)
-        if area < 0.20 * total_area:
+        if area < min_area_ratio * total_area:
             continue
-
-        perimeter = cv2.arcLength(c, True)
-        # Approximate contour with a simpler polygon (epsilon = 2% of perimeter)
-        approx = cv2.approxPolyDP(c, 0.02 * perimeter, True)
-
-        # Wrap the contour in a convex hull to smooth small dents and bumps
         hull = cv2.convexHull(c)
         perimeter = cv2.arcLength(hull, True)
 
-        # Try tolerances from 2% up to 5% to find 4 corners
         for eps_factor in [0.02, 0.03, 0.04, 0.05]:
             approx = cv2.approxPolyDP(hull, eps_factor * perimeter, True)
             if len(approx) == 4:
-                return approx.reshape(4, 2)
+                # Calculate bounding box aspect ratio
+                x, y, w, h = cv2.boundingRect(approx)
+                aspect_ratio = min(w, h) / max(w, h)
+                # Sudoku grids are square: aspect ratio should be reasonably close to 1.0
+                if aspect_ratio > min_aspect_ratio:
+                    candidates.append((area, approx.reshape(4, 2), aspect_ratio))
+                    break # Stop checking epsilon for this contour
 
-    return None
+    if not candidates:
+        return None
+
+    # my choice of selecting the best: largest
+    best_candidate = max(candidates, key=lambda item: (round(item[2], 2), item[0]))
+    return best_candidate[1]
 
 
 def warp_perspective(image: np.ndarray, corners: np.ndarray, output_size: int = 450) -> np.ndarray:
