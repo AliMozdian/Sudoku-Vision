@@ -101,3 +101,33 @@ def warp_perspective(image: np.ndarray, corners: np.ndarray, output_size: int = 
     transform_matrix = cv2.getPerspectiveTransform(ordered_corners, dst)
     warped = cv2.warpPerspective(image, transform_matrix, (output_size, output_size))
     return warped
+
+def extract_cells(warped_board: np.ndarray, margin_ratio: float = 0.10) -> list:
+    """
+    Splits a warped (NxN) Sudoku board into a list of 81 cell images.
+    
+    Args:
+        warped_board: Square grayscale or color image of the flattened board.
+        margin_ratio: Fraction of cell border to shave off to remove grid lines.
+        
+    Returns:
+        A list of 81 numpy arrays (ordered row by row, left to right).
+    """
+    cells = []
+    board_size = warped_board.shape[0]
+    step = board_size // 9
+    margin = int(step * margin_ratio)
+
+    for r in range(9):
+        for c in range(9):
+            # Compute cell coordinates
+            y1 = r * step
+            y2 = (r + 1) * step
+            x1 = c * step
+            x2 = (c + 1) * step
+
+            # Crop cell with margin trimmed from the edges
+            cell = warped_board[y1 + margin : y2 - margin, x1 + margin : x2 - margin]
+            cells.append(cell)
+
+    return cells
