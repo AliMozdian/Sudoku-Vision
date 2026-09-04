@@ -27,7 +27,7 @@ def preprocess_image(image: np.ndarray) -> np.ndarray:
     grid_table = cv2.add(horizontal, vertical)
 
     # 5. Connect any intersections cleanly
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
     grid_table = cv2.morphologyEx(grid_table, cv2.MORPH_CLOSE, kernel)
 
     return grid_table
@@ -50,7 +50,7 @@ def order_points(pts: np.ndarray) -> np.ndarray:
     return rect
 
 
-def find_board_corners(thresh_img: np.ndarray, min_area_ratio=0.15, min_aspect_ratio=0.5) -> np.ndarray:
+def find_board_corners(thresh_img: np.ndarray, min_area_ratio=0.15, min_aspect_ratio=0.8) -> np.ndarray:
     """Finds the 4 corners of the Sudoku grid with area and aspect ratio checks."""
     contours, _ = cv2.findContours(thresh_img, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:

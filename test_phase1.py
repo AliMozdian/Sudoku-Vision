@@ -52,7 +52,7 @@ def main():
         fnames = list(map(lambda name: name.split('/')[1][:-1], f.readlines()))
 
     for fn in fnames:
-       cut_and_save(fn, src_dir, dst_dir, display=True)
+       cut_and_save(fn, src_dir, dst_dir, display=False)
        cv2.destroyAllWindows()
     # cut_and_save('image1066.jpg', src_dir, dst_dir, display=True)
 
