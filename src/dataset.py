@@ -32,7 +32,8 @@ class SudokuCellsDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        return image, torch.tensor(label, dtype=torch.long)
+        # Return file path alongside image and label for error analysis
+        return image, torch.tensor(label, dtype=torch.long), img_path
 
 
 def get_data_loaders(
