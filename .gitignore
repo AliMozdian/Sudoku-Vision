@@ -7,5 +7,6 @@ __pycache__/
 .venv/
 venv/
 
-# test data files
+# unique directories for this project
 data/
+models/
